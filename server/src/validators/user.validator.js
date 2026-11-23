@@ -9,15 +9,15 @@ export const userValidation = [
     .isEmail()
     .withMessage("Enter a valid email address."),
 
-  body("name")
+  body("username")
     .exists()
-    .withMessage("Name is required.")
+    .withMessage("username is required.")
     .bail()
     .isString()
+    .withMessage("username should be string.")
     .trim()
-    .withMessage("Name should be string.")
-    .length({ min: 2, max: 25 })
-    .withMessage("Name should be between 2 and 25 characters."),
+    .isLength({ min: 2, max: 25 })
+    .withMessage("username should be between 2 and 25 characters."),
 
   body("password")
     .exists()
@@ -26,12 +26,14 @@ export const userValidation = [
     .isString()
     .withMessage("Password should be string.")
     .trim()
-    .length({ min: 6 })
+    .isLength({ min: 6 })
     .withMessage("Password must be minimum of 6 characters."),
   (req, res, next) => {
     const errors = validationResult(req);
-    if (errors.length > 0)
-      return res.status(400).json({ message: "Invalid request", errors });
+    if (!errors.isEmpty())
+      return res
+        .status(400)
+        .json({ message: "Invalid request", errors: errors.array() });
 
     next();
   },
