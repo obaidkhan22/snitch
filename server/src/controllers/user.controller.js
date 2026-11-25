@@ -25,12 +25,21 @@ export const registerUser = async (req, res) => {
       userId: newUser._id,
       role: newUser.role,
     });
+
+    await User.findByIdAndUpdate(newUser._id, {
+      refreshToken,
+    });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
     });
+
     return res.status(201).json({
-      message: "User created successfully.",
-      user: { username: newUser.username, email: newUser.email },
+      message: "User registered successfully.",
+      user: {
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role,
+      },
       accessToken,
     });
   } catch (error) {
