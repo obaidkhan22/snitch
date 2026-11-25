@@ -1,7 +1,11 @@
 import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
 import hashPassword from "../utils/hashPassword.js";
-import { createAccessToken, createRefreshToken } from "../utils/tokens.js";
+import {
+  createAccessToken,
+  createRefreshToken,
+  readRefreshToken,
+} from "../utils/tokens.js";
 
 export const registerUser = async (req, res) => {
   try {
@@ -69,15 +73,55 @@ export const loginUser = async (req, res) => {
       userId: user._id,
       role: user.role,
     });
+
+    await User.findOneAndUpdate(
+      { email },
+      {
+        refreshToken,
+      },
+    );
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
     });
-    return res
-      .status(200)
-      .json({
-        message: "Login Successfully",
-        user: { email: user.email, username: user.username, role: user.role },
-        accessToken,
-      });
+    return res.status(200).json({
+      message: "Login Successfully",
+      user: { email: user.email, username: user.username, role: user.role },
+      accessToken,
+    });
   } catch (error) {}
+};
+
+export const refresh = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken)
+      return res.status(400).json({ message: "Refresh token is requird" });
+
+    const decoded = readRefreshToken(refreshToken);
+    const { userId, role } = decoded;
+    const user = await User.findById(userId);
+    if (refreshToken != user.refreshToken) {
+      await User.findByIdAndUpdate(user._id, {
+        refreshToken: null,
+      });
+      return res.status(401).json({ message: "Refresh token mismatch" });
+    }
+    const newRefreshToken = createRefreshToken({ userId, role });
+    const newAccessToken = createAccessToken({ userId, role });
+    await User.findByIdAndUpdate(user._id, {
+      refreshToken: newRefreshToken,
+    });
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+    });
+    return res.status(200).json({
+      message: "Tokens rotated successfully",
+      newAccessToken,
+      data: {
+        user: { email: user.email, username: user.username, role: user.role },
+      },
+    });
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid refresh token" });
+  }
 };
